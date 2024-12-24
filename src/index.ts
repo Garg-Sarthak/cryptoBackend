@@ -57,20 +57,21 @@ httpServer.listen(9433);
 
 const wsServer = new WebSocketServer({server : httpServer});
 
+
 wsServer.on("connection", (ws) => {
     ws.on('error', console.error);
 
-    setInterval(() => {
-        wsServer.clients.forEach(function each(client) {
-          if (client.readyState === WebSocket.OPEN) {
-            var data = JSON.stringify({"price": price, "bids": bids, "asks": asks});
-            client.send(data);
-          }
-        });
-    },500)
     
     ws.send("Connected to server");
 })
 
+setInterval(() => {
+    wsServer.clients.forEach(function each(client) {
+      if (client.readyState === WebSocket.OPEN) {
+        var data = JSON.stringify({"price": price, "bids": bids, "asks": asks});
+        client.send(data);
+      }
+    });
+},500)
 
 
