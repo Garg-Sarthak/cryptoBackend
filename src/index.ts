@@ -7,12 +7,16 @@ config();
 var price = NaN;
 var bids = [[]];
 var asks = [[]];
+var bestBid = {bidPrice : 0, bidQty : 0}
+var bestAsk = {askPrice : 0, askQty : 0}
 
 const wsUrl = "wss://stream.binance.com:9443/ws/btcusdt@depth";
 const wsUrl2 = "wss://stream.binance.com:9443/ws/btcusdt@trade";
+const wsUrl3 = "wss://stream.binance.com:9443/ws/btcusdt@bookTicker";
 
 const ws = new WebSocket(wsUrl);
 const ws2 = new WebSocket(wsUrl2);
+const ws3 = new WebSocket(wsUrl3);
 
 ws.on('message', (data : string) => {
     try {
@@ -50,6 +54,12 @@ ws2.on ("error",error => {
     console.log(error)
 })
 
+ws3.on('message', (data : string) => {
+    const element = JSON.parse(data);
+    bestBid = {bidPrice : element['b'], bidQty : element['B']};
+    bestAsk = {askPrice : element['a'], askQty : element['A']};
+})
+
 const httpServer = createServer((req, res) => {
     res.end("request sent to websocket server");
 }); 
@@ -68,7 +78,7 @@ wsServer.on("connection", (ws) => {
 setInterval(() => {
     wsServer.clients.forEach(function each(client) {
       if (client.readyState === WebSocket.OPEN) {
-        var data = JSON.stringify({"price": price, "bids": bids, "asks": asks});
+        var data = JSON.stringify({"price": price, "bids": bids, "asks": asks, "bestBid" : bestBid, "bestAsk" : bestAsk});
         client.send(data);
       }
     });
