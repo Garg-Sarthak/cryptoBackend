@@ -8,7 +8,7 @@ var price = NaN;
 var bids = [[]];
 var asks = [[]];
 
-const wsUrl = "wss://stream.binance.com:9443/ws/btcusdt@depth@100ms";
+const wsUrl = "wss://stream.binance.com:9443/ws/btcusdt@depth";
 const wsUrl2 = "wss://stream.binance.com:9443/ws/btcusdt@trade";
 
 const ws = new WebSocket(wsUrl);
