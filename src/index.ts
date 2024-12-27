@@ -1,6 +1,7 @@
 import {createServer} from 'http';
 import { config } from 'dotenv';
 import WebSocket, { WebSocketServer } from 'ws';
+import { createClient } from 'redis';
 config();
 
 
@@ -10,6 +11,9 @@ var asks = [[]];
 var bestBid = {bidPrice : 0, bidQty : 0}
 var bestAsk = {askPrice : 0, askQty : 0}
 
+const client = createClient({url : process.env.REDIS_URL});
+
+
 const wsUrl = "wss://stream.binance.com:9443/ws/btcusdt@depth";
 const wsUrl2 = "wss://stream.binance.com:9443/ws/btcusdt@trade";
 const wsUrl3 = "wss://stream.binance.com:9443/ws/btcusdt@bookTicker";
@@ -18,6 +22,12 @@ const ws = new WebSocket(wsUrl);
 const ws2 = new WebSocket(wsUrl2);
 const ws3 = new WebSocket(wsUrl3);
 
+async function connectRedis() {
+    await client.connect();
+    console.log("Connected to redis");
+}
+connectRedis();
+
 ws.on('message', (data : string) => {
     try {
         const message = JSON.parse(data);
@@ -25,12 +35,14 @@ ws.on('message', (data : string) => {
         const bid = (message["b"]); 
         const ask = (message["a"]); 
         bids = bid; asks = ask;
-
+        client.set("bids", JSON.stringify(bids.slice(0, 10)));
+        client.set("asks", JSON.stringify(asks.slice(0, 10)));
+        
         /*
-            ask/bid => [[price, quantity], [price, quantity], ...]
+        ask/bid => [[price, quantity], [price, quantity], ...]
         */
-        
-        
+       
+       
     } catch (error) {
         console.error('Error parsing message:', error);
     }
@@ -45,6 +57,7 @@ ws2.on('message',(data : string) => {
         const element = JSON.parse(data);
         const currPrice = element['p'];
         price = currPrice;
+        client.set("price",JSON.stringify(price));  
     }
     catch(error){
         console.error("Error : ",error);
@@ -65,6 +78,7 @@ const httpServer = createServer((req, res) => {
 }); 
 httpServer.listen(9433);
 
+
 const wsServer = new WebSocketServer({server : httpServer});
 
 
@@ -74,6 +88,7 @@ wsServer.on("connection", (ws) => {
     
     ws.send("Connected to server");
 })
+
 
 setInterval(() => {
     wsServer.clients.forEach(function each(client) {
