@@ -15,20 +15,24 @@ const client = createClient({url : process.env.REDIS_URL});
 const prisma = new PrismaClient();
 prisma.$connect().then(() => console.log("connected to prisma"));  
 
-
-const streamSubscriber = (symbol : string,port : number) => {
-    const dbSymbol = symbol[0]=='b'?"BTC":symbol[0]=='e'?"ETH":symbol[0]=='s'?"SOL":"DOGE";
-    const httpServer = createServer((req, res) => {
+const httpServer = createServer((req, res) => {
         res.end("request sent to websocket server");
     }); 
-    httpServer.listen(port);
-    const wsServer = new WebSocketServer({server : httpServer});
-    
-    
-    wsServer.on("connection", (ws) => {
-        ws.on('error', console.error);
-        ws.send("Connected to server");
-    })
+httpServer.listen(8080);
+
+
+const streamSubscriber = (symbol : string,httpServer : any, path : string) => {
+    const dbSymbol = symbol[0]=='b'?"BTC":symbol[0]=='e'?"ETH":symbol[0]=='s'?"SOL":"DOGE";
+    const wsServer = new WebSocket.Server({ noServer: true });
+
+    httpServer.on('upgrade', (req : any, socket : any, head : any) => {
+        if (req.url === path) {
+            wsServer.handleUpgrade(req, socket, head, (ws) => {
+                wsServer.emit('connection', ws, req);
+            });
+        }
+    });
+
     var price = NaN;
     var bids = [[]];
     var asks = [[]];
@@ -234,10 +238,7 @@ const streamSubscriber = (symbol : string,port : number) => {
         } catch (error) {
             console.error("Error processing WebSocket message:", error);
         }
-    });
-    
-    
-    
+    }); 
     
     setInterval(() => {
         client.set(`${symbol}price`,price.toString());  
@@ -252,8 +253,11 @@ const streamSubscriber = (symbol : string,port : number) => {
           }
         });
     },500)
-
+    
 }
+
+
+
 
 async function connectRedis() {
     try{
@@ -266,8 +270,9 @@ async function connectRedis() {
 }
 
 connectRedis();
-streamSubscriber("btcusdt",9433);
-streamSubscriber("ethusdt",9434);
-streamSubscriber("solusdt",9435);
-streamSubscriber("dogeusdt",9436);
+
+streamSubscriber("btcusdt",httpServer,"/btcusdt");
+streamSubscriber("ethusdt",httpServer,"/ethusdt");
+streamSubscriber("solusdt",httpServer,"/solusdt");
+streamSubscriber("dogeusdt",httpServer,"/dogeusdt");
 

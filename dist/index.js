@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -41,10 +8,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const http_1 = require("http");
 const dotenv_1 = require("dotenv");
-const ws_1 = __importStar(require("ws"));
+const ws_1 = __importDefault(require("ws"));
 const redis_1 = require("redis");
 const client_1 = require("@prisma/client");
 const client_2 = require("@prisma/client");
@@ -52,16 +22,19 @@ const client_2 = require("@prisma/client");
 const client = (0, redis_1.createClient)({ url: process.env.REDIS_URL });
 const prisma = new client_1.PrismaClient();
 prisma.$connect().then(() => console.log("connected to prisma"));
-const streamSubscriber = (symbol, port) => {
+const httpServer = (0, http_1.createServer)((req, res) => {
+    res.end("request sent to websocket server");
+});
+httpServer.listen(8080);
+const streamSubscriber = (symbol, httpServer, path) => {
     const dbSymbol = symbol[0] == 'b' ? "BTC" : symbol[0] == 'e' ? "ETH" : symbol[0] == 's' ? "SOL" : "DOGE";
-    const httpServer = (0, http_1.createServer)((req, res) => {
-        res.end("request sent to websocket server");
-    });
-    httpServer.listen(port);
-    const wsServer = new ws_1.WebSocketServer({ server: httpServer });
-    wsServer.on("connection", (ws) => {
-        ws.on('error', console.error);
-        ws.send("Connected to server");
+    const wsServer = new ws_1.default.Server({ noServer: true });
+    httpServer.on('upgrade', (req, socket, head) => {
+        if (req.url === path) {
+            wsServer.handleUpgrade(req, socket, head, (ws) => {
+                wsServer.emit('connection', ws, req);
+            });
+        }
     });
     var price = NaN;
     var bids = [[]];
@@ -277,7 +250,7 @@ function connectRedis() {
     });
 }
 connectRedis();
-streamSubscriber("btcusdt", 9433);
-streamSubscriber("ethusdt", 9434);
-streamSubscriber("solusdt", 9435);
-streamSubscriber("dogeusdt", 9436);
+streamSubscriber("btcusdt", httpServer, "/btcusdt");
+streamSubscriber("ethusdt", httpServer, "/ethusdt");
+streamSubscriber("solusdt", httpServer, "/solusdt");
+streamSubscriber("dogeusdt", httpServer, "/dogeusdt");
