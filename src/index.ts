@@ -20,14 +20,17 @@ prisma.$connect().then(() => console.log("connected to prisma"));
 
 
 const httpServer = createServer((req, res) => {
-        res.end("request sent to websocket server");
-    }); 
+    res.end("request sent to websocket server");
+}); 
 httpServer.listen(8080);
 
 async function connectRedis() {
     try{
         await client.connect();
         await streamClient.connect();
+        setInterval(() => {
+            if (streamClient.isReady) updateDB();
+        },100)
         
         console.log("Connected to redis");
     }catch(e){
@@ -42,9 +45,6 @@ executeOrder("solusdt",client);
 executeOrder("dogeusdt",client);
 
 
-// setInterval(() => {
-//     if (streamClient.isReady) updateDB();
-// },100)
 
 
 streamsSubscriber("btcusdt",httpServer,"/btcusdt",client);
