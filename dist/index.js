@@ -12,245 +12,57 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.streamClient = exports.client = void 0;
 const http_1 = require("http");
 const dotenv_1 = require("dotenv");
-const ws_1 = __importDefault(require("ws"));
 const redis_1 = require("redis");
 const client_1 = require("@prisma/client");
-const client_2 = require("@prisma/client");
+const streams_1 = __importDefault(require("./streams"));
+const buyws_1 = require("./buyws");
+const dbUpdate_1 = __importDefault(require("./dbUpdate"));
 (0, dotenv_1.config)();
-const client = (0, redis_1.createClient)({ url: process.env.REDIS_URL });
+exports.client = (0, redis_1.createClient)({ url: process.env.REDIS_URL });
+exports.streamClient = (0, redis_1.createClient)({ url: process.env.REDIS_STREAM_URL });
 const prisma = new client_1.PrismaClient();
 prisma.$connect().then(() => console.log("connected to prisma"));
+function prismaCheck() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const order = yield prisma.wallet.create({
+            data: {
+                userId: "a",
+                balance: 10
+            }
+        });
+        console.log(order.id);
+    });
+}
 const httpServer = (0, http_1.createServer)((req, res) => {
     res.end("request sent to websocket server");
 });
 httpServer.listen(8080);
-const streamSubscriber = (symbol, httpServer, path) => {
-    const dbSymbol = symbol[0] == 'b' ? "BTC" : symbol[0] == 'e' ? "ETH" : symbol[0] == 's' ? "SOL" : "DOGE";
-    const wsServer = new ws_1.default.Server({ noServer: true });
-    httpServer.on('upgrade', (req, socket, head) => {
-        if (req.url === path) {
-            wsServer.handleUpgrade(req, socket, head, (ws) => {
-                wsServer.emit('connection', ws, req);
-            });
-        }
-    });
-    var price = NaN;
-    var bids = [[]];
-    var asks = [[]];
-    var bestBid = { bidPrice: 0, bidQty: 0 };
-    var bestAsk = { askPrice: 0, askQty: 0 };
-    const wsUrl = `wss://stream.binance.com:9443/ws/${symbol}@depth`;
-    const wsUrl2 = `wss://stream.binance.com:9443/ws/${symbol}@trade`;
-    const wsUrl3 = `wss://stream.binance.com:9443/ws/${symbol}@bookTicker`;
-    const ws = new ws_1.default(wsUrl);
-    const ws2 = new ws_1.default(wsUrl2);
-    const buyWs = new ws_1.default(wsUrl3);
-    const sellWs = new ws_1.default(wsUrl3);
-    ws.on('message', (data) => {
-        try {
-            const message = JSON.parse(data);
-            const bid = (message["b"]);
-            const ask = (message["a"]);
-            bids = bid;
-            asks = ask;
-        }
-        catch (error) {
-            console.error('Error parsing message:', error);
-        }
-    });
-    ws.on('error', (error) => {
-        console.error('WebSocket Error:', error);
-    });
-    ws2.on('message', (data) => {
-        try {
-            const element = JSON.parse(data);
-            const currPrice = element['p'];
-            price = currPrice;
-        }
-        catch (error) {
-            console.error("Error : ", error);
-        }
-    });
-    ws2.on("error", error => {
-        console.log(error);
-    });
-    buyWs.on('message', (data) => __awaiter(void 0, void 0, void 0, function* () {
-        try {
-            const binanObj = JSON.parse(data);
-            const bestPrice = parseFloat(binanObj['b']);
-            let bestQty = parseFloat(binanObj['B']);
-            // Fetch buy orders with price >= bestPrice
-            const buy_orders = yield client.zRangeByScoreWithScores(`${symbol}_buy`, bestPrice, Infinity);
-            for (const buy_order of buy_orders) {
-                const val = JSON.parse(buy_order.value);
-                const qtyOrder = parseFloat(val.qty);
-                const oid = parseInt(val.oid);
-                if (bestQty > qtyOrder) {
-                    bestQty -= qtyOrder;
-                    // Remove completed order from Redis
-                    yield client.zRem(`${symbol}_buy`, buy_order.value);
-                    // Create transaction and update order
-                    yield prisma.$transaction([
-                        prisma.transaction.create({
-                            data: {
-                                userId: "null",
-                                time: new Date(),
-                                side: "BUY",
-                                price: new client_2.Prisma.Decimal(bestPrice),
-                                quantity: new client_2.Prisma.Decimal(qtyOrder),
-                                totalAmount: new client_2.Prisma.Decimal(bestPrice * qtyOrder),
-                                symbol: dbSymbol,
-                                orderId: oid,
-                            },
-                        }),
-                        prisma.order.update({
-                            where: { id: oid },
-                            data: {
-                                filledQuantity: qtyOrder,
-                                status: "COMPLETED",
-                            },
-                        }),
-                    ]);
-                }
-                else {
-                    const remainingQty = qtyOrder - bestQty;
-                    bestQty = 0;
-                    yield client.zRem(`${symbol}_buy`, buy_order.value);
-                    yield client.zAdd(`${symbol}_buy`, {
-                        score: buy_order.score,
-                        value: JSON.stringify({ oid, qty: remainingQty }),
-                    });
-                    yield prisma.$transaction([
-                        prisma.transaction.create({
-                            data: {
-                                userId: "null",
-                                time: new Date(),
-                                side: "BUY",
-                                price: new client_2.Prisma.Decimal(bestPrice),
-                                quantity: new client_2.Prisma.Decimal(bestQty),
-                                totalAmount: new client_2.Prisma.Decimal(bestPrice * bestQty),
-                                symbol: dbSymbol,
-                                orderId: oid,
-                            },
-                        }),
-                        prisma.order.update({
-                            where: { id: oid },
-                            data: {
-                                filledQuantity: bestQty,
-                                status: "PARTIALLY_FILLED",
-                            },
-                        }),
-                    ]);
-                    break;
-                }
-            }
-        }
-        catch (error) {
-            console.error("Error processing WebSocket message:", error);
-        }
-    }));
-    sellWs.on('message', (data) => __awaiter(void 0, void 0, void 0, function* () {
-        try {
-            const binanObj = JSON.parse(data);
-            const bestPrice = parseFloat(binanObj['a']);
-            let bestQty = parseFloat(binanObj['A']);
-            // Fetch buy orders with price >= bestPrice
-            const sell_orders = yield client.zRangeByScoreWithScores(`${symbol}_sell`, 0, bestPrice);
-            for (const sell_order of sell_orders) {
-                const val = JSON.parse(sell_order.value);
-                const qtyOrder = parseFloat(val.qty);
-                const oid = parseInt(val.oid);
-                if (bestQty > qtyOrder) {
-                    bestQty -= qtyOrder;
-                    // Remove completed order from Redis
-                    yield client.zRem(`${symbol}_sell`, sell_order.value);
-                    // Create transaction and update order
-                    yield prisma.$transaction([
-                        prisma.transaction.create({
-                            data: {
-                                userId: "null",
-                                time: new Date(),
-                                side: "SELL",
-                                price: new client_2.Prisma.Decimal(bestPrice),
-                                quantity: new client_2.Prisma.Decimal(qtyOrder),
-                                totalAmount: new client_2.Prisma.Decimal(bestPrice * qtyOrder),
-                                symbol: dbSymbol,
-                                orderId: oid,
-                            },
-                        }),
-                        prisma.order.update({
-                            where: { id: oid },
-                            data: {
-                                filledQuantity: qtyOrder,
-                                status: "COMPLETED",
-                            },
-                        }),
-                    ]);
-                }
-                else {
-                    const remainingQty = qtyOrder - bestQty;
-                    yield client.zRem(`${symbol}_sell`, sell_order.value);
-                    yield client.zAdd(`${symbol}_sell`, {
-                        score: sell_order.score,
-                        value: JSON.stringify({ oid, qty: remainingQty }),
-                    });
-                    yield prisma.$transaction([
-                        prisma.transaction.create({
-                            data: {
-                                userId: "null",
-                                time: new Date(),
-                                side: "SELL",
-                                price: new client_2.Prisma.Decimal(bestPrice),
-                                quantity: new client_2.Prisma.Decimal(bestQty),
-                                totalAmount: new client_2.Prisma.Decimal(bestPrice * bestQty),
-                                symbol: dbSymbol,
-                                orderId: oid,
-                            },
-                        }),
-                        prisma.order.update({
-                            where: { id: oid },
-                            data: {
-                                filledQuantity: bestQty,
-                                status: "PARTIALLY_FILLED",
-                            },
-                        }),
-                    ]);
-                    break;
-                }
-            }
-        }
-        catch (error) {
-            console.error("Error processing WebSocket message:", error);
-        }
-    }));
-    setInterval(() => {
-        client.set(`${symbol}price`, price.toString());
-    }, 10000);
-    setInterval(() => {
-        wsServer.clients.forEach(function each(client) {
-            if (client.readyState === ws_1.default.OPEN) {
-                var data = JSON.stringify({ "price": price, "bids": bids, "asks": asks });
-                client.send(data);
-            }
-        });
-    }, 500);
-};
 function connectRedis() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            yield client.connect();
+            yield exports.client.connect();
+            yield exports.streamClient.connect();
             console.log("Connected to redis");
         }
         catch (e) {
             console.log("error : : ", e);
-            setTimeout(connectRedis, 10000);
         }
     });
 }
 connectRedis();
-streamSubscriber("btcusdt", httpServer, "/btcusdt");
-streamSubscriber("ethusdt", httpServer, "/ethusdt");
-streamSubscriber("solusdt", httpServer, "/solusdt");
-streamSubscriber("dogeusdt", httpServer, "/dogeusdt");
+(0, buyws_1.executeOrder)("btcusdt", exports.client);
+(0, buyws_1.executeOrder)("ethusdt", exports.client);
+(0, buyws_1.executeOrder)("solusdt", exports.client);
+(0, buyws_1.executeOrder)("dogeusdt", exports.client);
+setInterval(() => {
+    if (exports.streamClient.isReady)
+        (0, dbUpdate_1.default)();
+}, 100);
+(0, streams_1.default)("btcusdt", httpServer, "/btcusdt", exports.client);
+(0, streams_1.default)("ethusdt", httpServer, "/ethusdt", exports.client);
+(0, streams_1.default)("solusdt", httpServer, "/solusdt", exports.client);
+(0, streams_1.default)("dogeusdt", httpServer, "/dogeusdt", exports.client);
+exports.default = prisma;

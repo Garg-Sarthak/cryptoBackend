@@ -7,7 +7,15 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Order {
+model auditLog {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  action    String
+  timestamp DateTime @default(now())
+  details   Json
+}
+
+model order {
   id             Int           @id @default(autoincrement())
   userId         String
   time           DateTime
@@ -19,37 +27,13 @@ model Order {
   filledAmount   Decimal       @default(0)
   filledQuantity Decimal       @default(0)
   symbol         String
-  transactions   Transaction[]
-
-  @@index([userId])
-  @@index([symbol])
-}
-
-model Transaction {
-  id          Int      @id @default(autoincrement())
-  userId      String   @default("null")
-  time        DateTime
-  side        STYPE
-  price       Decimal
-  quantity    Decimal
-  totalAmount Decimal
-  orderId     Int
-  symbol      String
-  order       Order    @relation(fields: [orderId], references: [id])
+  transaction    transaction[]
 
   @@index([symbol])
-}
-
-model Wallet {
-  id       Int     @id @default(autoincrement())
-  userId   String  @unique
-  balance  Decimal
-  reserved Decimal @default(0.0)
-
   @@index([userId])
 }
 
-model Positions {
+model positions {
   id       Int     @id @default(autoincrement())
   userId   String
   side     STYPE
@@ -59,12 +43,28 @@ model Positions {
   symbol   String
 }
 
-model AuditLog {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  action    String
-  timestamp DateTime @default(now())
-  details   Json
+model transaction {
+  id          Int      @id @default(autoincrement())
+  userId      String   @default("null")
+  time        DateTime
+  side        STYPE
+  price       Decimal
+  quantity    Decimal
+  totalAmount Decimal
+  orderId     Int
+  symbol      String
+  order       order    @relation(fields: [orderId], references: [id])
+
+  @@index([symbol])
+}
+
+model wallet {
+  id       Int     @id @default(autoincrement())
+  userId   String  @unique
+  balance  Decimal
+  reserved Decimal @default(0.0)
+
+  @@index([userId])
 }
 
 enum STYPE {
