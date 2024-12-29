@@ -19,12 +19,15 @@ function updateDB() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const listLen = yield _2.streamClient.lLen("db");
+            // console.log("len",listLen);
             if (!listLen)
                 return;
             const jobData = yield _2.streamClient.lPop("db");
+            // console.log("len",jobData);
             if (!jobData)
                 return;
             try {
+                // console.log("entered try")
                 const jobObj = JSON.parse(jobData);
                 const status = jobObj.status == "PARTIALLY_FILLED" ? "PARTIALLY_FILLED" : "COMPLETED";
                 const symbol = jobObj.symbol[0] == 'b' ? "BTC" : jobObj.symbol[0] == 'e' ? "ETH" : jobObj.symbol[0] == 's' ? "SOL" : "DOGE";
@@ -53,6 +56,7 @@ function updateDB() {
                         }
                     })
                 ]);
+                // console.log("transcion done")
             }
             catch (e) {
                 console.log("e");

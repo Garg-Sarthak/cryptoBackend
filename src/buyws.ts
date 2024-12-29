@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { streamClient } from ".";
+import updateDB from "./dbUpdate";
 
 export async function executeOrder(symbol : string,client:any){
     const wsUrl = `wss://stream.binance.com:9443/ws/${symbol}@ticker`;
@@ -36,6 +37,7 @@ export async function executeOrder(symbol : string,client:any){
                     const orderDetails = { time, side: "BUY", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                     try{
                         await streamClient.lPush("db", JSON.stringify(orderDetails));
+                        updateDB();
                     }catch(e){
                         console.log("error while adding to redis stream")
                     }
@@ -57,6 +59,7 @@ export async function executeOrder(symbol : string,client:any){
                     const orderDetails = { time, side: "BUY", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                     try{
                         await streamClient.lPush("db", JSON.stringify(orderDetails));
+                        updateDB();
                     }catch(e){
                         console.log("error while adding to redis stream")
                     }
@@ -101,6 +104,7 @@ export async function executeOrder(symbol : string,client:any){
                     const orderDetails = { time, side: "SELL", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                     try{
                         streamClient.lPush("db",JSON.stringify(orderDetails));
+                        updateDB();
                     }catch(e){
                         console.log("error while adding to redis stream")
                     }
@@ -123,6 +127,7 @@ export async function executeOrder(symbol : string,client:any){
                     const orderDetails = { time, side: "SELL", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                     try{
                         streamClient.lPush("db",JSON.stringify(orderDetails));
+                        updateDB();
                     }catch(e){
                         console.log("error while adding to redis stream")
                     }

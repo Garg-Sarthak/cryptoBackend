@@ -1,4 +1,4 @@
-import {createServer, setMaxIdleHTTPParsers} from 'http';
+import {createServer} from 'http';
 import { config } from 'dotenv';
 import { createClient } from 'redis';
 import { PrismaClient } from '@prisma/client';
@@ -14,16 +14,8 @@ export const streamClient = createClient({url : process.env.REDIS_STREAM_URL})
 
 const prisma = new PrismaClient();
 prisma.$connect().then(() => console.log("connected to prisma"));  
-
-async function prismaCheck(){
-    const order = await prisma.wallet.create({
-        data : {
-            userId : "a",
-            balance : 10
-        }
-    })
-    console.log(order.id);
-}
+// prisma.transaction.findMany()
+// .then((data) => console.log(data));
 
 
 
@@ -31,12 +23,6 @@ const httpServer = createServer((req, res) => {
         res.end("request sent to websocket server");
     }); 
 httpServer.listen(8080);
-
-
-
-
-
-
 
 async function connectRedis() {
     try{
@@ -56,9 +42,9 @@ executeOrder("solusdt",client);
 executeOrder("dogeusdt",client);
 
 
-setInterval(() => {
-    if (streamClient.isReady) updateDB();
-},100)
+// setInterval(() => {
+//     if (streamClient.isReady) updateDB();
+// },100)
 
 
 streamsSubscriber("btcusdt",httpServer,"/btcusdt",client);

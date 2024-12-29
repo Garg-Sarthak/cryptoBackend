@@ -4,11 +4,13 @@ import { streamClient } from ".";
 export default async function updateDB() {
     try{
         const listLen = await streamClient.lLen("db");
+        // console.log("len",listLen);
         if (!listLen) return;
         const jobData = await streamClient.lPop("db");
+        // console.log("len",jobData);
         if (!jobData) return;
         try{
-            
+            // console.log("entered try")
             const jobObj = JSON.parse(jobData);
             const status = jobObj.status == "PARTIALLY_FILLED"?"PARTIALLY_FILLED":"COMPLETED";
             const symbol = jobObj.symbol[0]=='b'?"BTC":jobObj.symbol[0]=='e'?"ETH":jobObj.symbol[0]=='s'?"SOL":"DOGE";
@@ -38,6 +40,7 @@ export default async function updateDB() {
                     }
                 })
             ])
+            // console.log("transcion done")
         }catch(e){
             console.log("e")
             await streamClient.lPush("db",jobData)

@@ -19,23 +19,13 @@ const redis_1 = require("redis");
 const client_1 = require("@prisma/client");
 const streams_1 = __importDefault(require("./streams"));
 const buyws_1 = require("./buyws");
-const dbUpdate_1 = __importDefault(require("./dbUpdate"));
 (0, dotenv_1.config)();
 exports.client = (0, redis_1.createClient)({ url: process.env.REDIS_URL });
 exports.streamClient = (0, redis_1.createClient)({ url: process.env.REDIS_STREAM_URL });
 const prisma = new client_1.PrismaClient();
 prisma.$connect().then(() => console.log("connected to prisma"));
-function prismaCheck() {
-    return __awaiter(this, void 0, void 0, function* () {
-        const order = yield prisma.wallet.create({
-            data: {
-                userId: "a",
-                balance: 10
-            }
-        });
-        console.log(order.id);
-    });
-}
+// prisma.transaction.findMany()
+// .then((data) => console.log(data));
 const httpServer = (0, http_1.createServer)((req, res) => {
     res.end("request sent to websocket server");
 });
@@ -57,10 +47,9 @@ connectRedis();
 (0, buyws_1.executeOrder)("ethusdt", exports.client);
 (0, buyws_1.executeOrder)("solusdt", exports.client);
 (0, buyws_1.executeOrder)("dogeusdt", exports.client);
-setInterval(() => {
-    if (exports.streamClient.isReady)
-        (0, dbUpdate_1.default)();
-}, 100);
+// setInterval(() => {
+//     if (streamClient.isReady) updateDB();
+// },100)
 (0, streams_1.default)("btcusdt", httpServer, "/btcusdt", exports.client);
 (0, streams_1.default)("ethusdt", httpServer, "/ethusdt", exports.client);
 (0, streams_1.default)("solusdt", httpServer, "/solusdt", exports.client);

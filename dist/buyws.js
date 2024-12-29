@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.executeOrder = executeOrder;
 const ws_1 = __importDefault(require("ws"));
 const _1 = require(".");
+const dbUpdate_1 = __importDefault(require("./dbUpdate"));
 function executeOrder(symbol, client) {
     return __awaiter(this, void 0, void 0, function* () {
         const wsUrl = `wss://stream.binance.com:9443/ws/${symbol}@ticker`;
@@ -43,6 +44,7 @@ function executeOrder(symbol, client) {
                         const orderDetails = { time, side: "BUY", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                         try {
                             yield _1.streamClient.lPush("db", JSON.stringify(orderDetails));
+                            (0, dbUpdate_1.default)();
                         }
                         catch (e) {
                             console.log("error while adding to redis stream");
@@ -64,6 +66,7 @@ function executeOrder(symbol, client) {
                         const orderDetails = { time, side: "BUY", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                         try {
                             yield _1.streamClient.lPush("db", JSON.stringify(orderDetails));
+                            (0, dbUpdate_1.default)();
                         }
                         catch (e) {
                             console.log("error while adding to redis stream");
@@ -100,6 +103,7 @@ function executeOrder(symbol, client) {
                         const orderDetails = { time, side: "SELL", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                         try {
                             _1.streamClient.lPush("db", JSON.stringify(orderDetails));
+                            (0, dbUpdate_1.default)();
                         }
                         catch (e) {
                             console.log("error while adding to redis stream");
@@ -121,6 +125,7 @@ function executeOrder(symbol, client) {
                         const orderDetails = { time, side: "SELL", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                         try {
                             _1.streamClient.lPush("db", JSON.stringify(orderDetails));
+                            (0, dbUpdate_1.default)();
                         }
                         catch (e) {
                             console.log("error while adding to redis stream");
