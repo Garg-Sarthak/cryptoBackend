@@ -16,13 +16,7 @@ export default async function updateDB() {
             const symbol = jobObj.symbol[0]=='b'?"BTC":jobObj.symbol[0]=='e'?"ETH":jobObj.symbol[0]=='s'?"SOL":"DOGE";
             const side = jobObj.side=="SELL"?"SELL":"BUY";
             
-            const ord = await prisma.order.findUnique({
-                where : {
-                    id : jobObj.orderId
-                }
-            })
-            const userId = ord?ord.userId:"test";
-
+            
             await prisma.$transaction([
                 // update order
                 prisma.order.update({
@@ -34,12 +28,11 @@ export default async function updateDB() {
                         filledQuantity : {increment : jobObj.quantity}
                     }
                 }),
-
+                
                 // make transaction
                 prisma.transaction.create({
                     data : {
                         time : jobObj.time,
-                        userId : ord?ord.userId : "",
                         side,
                         price : jobObj.price,
                         quantity : jobObj.quantity,
@@ -49,6 +42,27 @@ export default async function updateDB() {
                     }
                 })
             ])
+
+            try{
+                const ord = await prisma.order.findUnique({
+                    where : {
+                        id : jobObj.orderId
+                    }
+                })
+                if (ord){
+                    await prisma.transaction.updateMany({
+                        where : {
+                            orderId : ord.id
+                        },
+                        data : {
+                            userId : ord.userId
+                        }
+                    })
+                }
+
+            }catch(e){}
+            
+
             // console.log("transcion done")
         }catch(e){
             console.log("e")
