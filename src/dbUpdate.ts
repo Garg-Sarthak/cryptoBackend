@@ -15,13 +15,13 @@ export default async function updateDB() {
             const status = jobObj.status == "PARTIALLY_FILLED"?"PARTIALLY_FILLED":"COMPLETED";
             const symbol = jobObj.symbol[0]=='b'?"BTC":jobObj.symbol[0]=='e'?"ETH":jobObj.symbol[0]=='s'?"SOL":"DOGE";
             const side = jobObj.side=="SELL"?"SELL":"BUY";
-
+            
             const ord = await prisma.order.findUnique({
                 where : {
                     id : jobObj.orderId
                 }
             })
-            const userId = ord?.userId;
+            const userId = ord?ord.userId:"test";
 
             await prisma.$transaction([
                 // update order
