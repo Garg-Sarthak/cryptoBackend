@@ -13,7 +13,7 @@ export async function executeOrder(symbol : string,client:any){
             let bestQty = parseFloat(binanObj['B']);
     
             // Fetch buy orders with price >= bestPrice
-            const buy_orders = await client.zRangeByScoreWithScores(`${symbol}_buy`, bestPrice, Infinity);
+            const buy_orders = await client.zRangeByScoreWithScores(`${symbol}_buy`, bestPrice, Infinity); //sorted set
     
             for (const buy_order of buy_orders) {
                 const val = JSON.parse(buy_order.value);
@@ -36,7 +36,7 @@ export async function executeOrder(symbol : string,client:any){
 
                     const orderDetails = { time, side: "BUY", price: bestPrice, quantity, status, totalAmount, orderId: oid, symbol };
                     try{
-                        await streamClient.lPush("db", JSON.stringify(orderDetails));
+                        await streamClient.lPush("db", JSON.stringify(orderDetails)); // db job to redis queue 
                         updateDB();
                     }catch(e){
                         console.log("error while adding to redis stream")
