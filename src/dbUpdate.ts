@@ -39,7 +39,7 @@ export default async function updateDB() {
                 prisma.transaction.create({
                     data : {
                         time : jobObj.time,
-                        userId : userId || "",
+                        userId : ord?ord.userId : "",
                         side,
                         price : jobObj.price,
                         quantity : jobObj.quantity,
